@@ -1,4 +1,4 @@
-use std::ops::{Add, Mul};
+use std::ops::{Add, Div, Mul};
 
 use ark_bn254::{Fq, Fq12, Fq2, Fq6};
 use ark_ff::{BigInt, PrimeField};
@@ -148,6 +148,19 @@ impl Mul for MyFq12 {
         Self {
             coeffs: out_coeffs.try_into().unwrap(),
         }
+    }
+}
+
+// this is for convinience
+// we don't need to implement this in zk circuit
+impl Div for MyFq12 {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        let a: Fq12 = self.into();
+        let b: Fq12 = rhs.into();
+        let divided = a / b;
+        divided.into()
     }
 }
 

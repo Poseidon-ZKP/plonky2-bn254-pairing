@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 use std::{ops::Div, vec};
 
-use ark_bn254::{Fq, Fq12, Fq2};
+use ark_bn254::{Fq, Fq2};
 use ark_ff::Field;
 use ark_std::Zero;
 use itertools::Itertools;
@@ -66,14 +66,7 @@ pub fn pow(a: MyFq12, exp: Vec<u64>) -> MyFq12 {
         if z != 0 {
             assert!(z == 1 || z == -1);
             if is_started {
-                res = if z == 1 {
-                    res * a
-                } else {
-                    let res_fp12: Fq12 = res.into();
-                    let a_fp12: Fq12 = a.into();
-                    let divided = res_fp12 / a_fp12;
-                    divided.into()
-                };
+                res = if z == 1 { res * a } else { res / a };
             } else {
                 assert_eq!(z, 1);
                 is_started = true;
@@ -194,12 +187,7 @@ pub fn frob_coeffs(index: usize) -> Fq2 {
 // out = in^{ (q^6 - 1)*(q^2 + 1) }
 pub fn easy_part<'v>(a: MyFq12) -> MyFq12 {
     let f1 = conjugate_fp12(a);
-    let f2 = {
-        let f1_fp12: Fq12 = f1.into();
-        let a_fp12: Fq12 = a.into();
-        let divided = f1_fp12 / a_fp12;
-        divided.into()
-    };
+    let f2 = f1 / a;
     let f3 = frobenius_map(f2, 2);
     let f = f3 * f2;
     f
