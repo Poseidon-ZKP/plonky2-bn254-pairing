@@ -337,7 +337,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Fq2Target<F, D> {
         let is_gx1_sq = gx1.is_square(builder);
         let is_gx2_sq = gx2.is_square(builder);
 
-        print_fq_target(builder, &x1.coeffs[0], "x1.coeffs[0]".to_string());
+        // print_fq_target(builder, &x1.coeffs[0], "x1.coeffs[0]".to_string());
 
         let x1_or_x2 = Self::select(builder, &x1, &x2, &is_gx1_sq);
         let isgx1_xor_isgx2 = xor_circuit(is_gx1_sq, is_gx2_sq, builder);
@@ -516,8 +516,8 @@ mod tests {
         );
         let g = |x: Fq2| -> Fq2 { x * x * x + B };
         let gz = g(Z);
-        // let term = -(Fq2::from(3) * Z * Z) / (Fq2::from(4) * gz);
-        // let sq_term = term.sqrt().unwrap();
+        let term = -(Fq2::from(3) * Z * Z) / (Fq2::from(4) * gz);
+        term.sqrt().unwrap(); // for test
         let neg_two: BigUint = Fq::from(-2).into();
         let inv_fq = |x: Fq| -> Fq { x.pow(neg_two.to_u64_digits()) };
         let inv0 = |x: Fq2| -> Fq2 {
@@ -526,7 +526,6 @@ mod tests {
             let by = -x.c1 * t0;
             Fq2::new(bx, by)
         };
-
         let sgn0_fq = |x: Fq| -> bool {
             let y: BigUint = x.into();
             y.to_u32_digits()[0] & 1 == 1
@@ -539,8 +538,6 @@ mod tests {
         };
         let neg_two_by_z = -Z / (Fq2::from(2));
         let tv4 = (-gz * Fq2::from(3) * Z * Z).sqrt().unwrap();
-        // let tv4 = -tv4;
-        // dbg!(sgn0(tv4));
         let tv6 = -Fq2::from(4) * gz / (Fq2::from(3) * Z * Z);
         // end of constants
 
@@ -556,8 +553,8 @@ mod tests {
         let is_gx2_sq = g(x2).legendre().is_qr();
         let is_gx3_sq = g(x3).legendre().is_qr();
 
-        print_ark_fq(x1.c0, "x1.c0".to_string());
-        dbg!(is_gx1_sq, is_gx2_sq, is_gx3_sq);
+        // print_ark_fq(x1.c0, "x1.c0".to_string());
+        // dbg!(is_gx1_sq, is_gx2_sq, is_gx3_sq);
 
         let x: Fq2;
         let mut y: Fq2;
