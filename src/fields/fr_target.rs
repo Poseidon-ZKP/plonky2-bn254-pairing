@@ -216,9 +216,7 @@ mod tests {
     use num_traits::*;
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
-        plonk::{
-            circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
-        },
+        plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig},
     };
 
     use super::FrTarget;

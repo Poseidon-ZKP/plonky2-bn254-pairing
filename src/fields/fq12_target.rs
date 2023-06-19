@@ -351,10 +351,10 @@ mod tests {
     };
 
     use super::{from_biguint_to_fq, Fq12Target};
+    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
+    use log::Level;
     use plonky2::plonk::prover::prove;
     use plonky2::util::timing::TimingTree;
-    use log::Level;
-    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 
     fn init_logger() {
         let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
@@ -392,6 +392,36 @@ mod tests {
     }
 
     #[test]
+    fn test_fq12_equal() -> Result<()> {
+        init_logger();
+        let rng = &mut rand::thread_rng();
+        let a = Fq12::rand(rng);
+        let b = a.clone();
+
+        let config = CircuitConfig::standard_ecc_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+        let a_t = Fq12Target::constant(&mut builder, a);
+        let b_t = Fq12Target::constant(&mut builder, b);
+        let _ = Fq12Target::connect(&mut builder, &a_t, &b_t);
+
+        let num_gates = builder.num_gates();
+        let pw = PartialWitness::new();
+        let mut timing = TimingTree::new("prove", Level::Debug);
+        let data = builder.build::<C>();
+        let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;
+        timing.print();
+        println!(
+            "Gt equal: num_gates: {}, degree: {}, ",
+            num_gates,
+            data.common.degree()
+        );
+
+        data.verify(proof)?;
+
+        Ok(())
+    }
+
+    #[test]
     fn test_fq12_mul_circuit() -> Result<()> {
         init_logger();
         let rng = &mut rand::thread_rng();
@@ -414,8 +444,9 @@ mod tests {
         let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;
         timing.print();
         println!(
-            "1 Gt mul: num_gates: {}, degree: {}, ",
-            num_gates, data.common.degree()
+            "100 G1 adds muls: num_gates: {}, degree: {}, ",
+            num_gates,
+            data.common.degree()
         );
 
         data.verify(proof)?;

@@ -180,10 +180,10 @@ mod tests {
         },
     };
 
+    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
+    use log::Level;
     use plonky2::plonk::prover::prove;
     use plonky2::util::timing::TimingTree;
-    use log::Level;
-    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 
     fn init_logger() {
         let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
@@ -222,7 +222,8 @@ mod tests {
         timing.print();
         println!(
             "1 G2 adds muls: num_gates: {}, degree: {}, ",
-            num_gates, data.common.degree()
+            num_gates,
+            data.common.degree()
         );
 
         data.verify(proof)?;

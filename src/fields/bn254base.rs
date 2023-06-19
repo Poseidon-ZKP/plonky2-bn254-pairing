@@ -261,6 +261,10 @@ impl From<Fq> for Bn254Base {
 mod tests {
     use anyhow::Result;
     use ark_bn254::Fq;
+    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
+    use log::Level;
+    use plonky2::plonk::prover::prove;
+    use plonky2::util::timing::TimingTree;
     use plonky2::{
         field::types::Sample,
         iop::witness::PartialWitness,
@@ -271,10 +275,6 @@ mod tests {
         },
     };
     use plonky2_ecdsa::gadgets::nonnative::CircuitBuilderNonNative;
-    use plonky2::plonk::prover::prove;
-    use plonky2::util::timing::TimingTree;
-    use log::Level;
-    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 
     fn init_logger() {
         let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
@@ -376,7 +376,8 @@ mod tests {
         timing.print();
         println!(
             "100 base field muls: num_gates: {}, degree: {}, ",
-            num_gates, data.common.degree()
+            num_gates,
+            data.common.degree()
         );
 
         data.verify(proof)?;
