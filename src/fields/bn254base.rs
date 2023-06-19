@@ -349,7 +349,14 @@ mod tests {
         let pw = PartialWitness::<F>::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        for _ in 0..100 {
+        // standard ecc
+        // 2^17 = 1184
+        // 2^18 = 2368
+        // 2^19 = 4737
+        // wide ecc
+        // 2^17 = 1369
+        // 2^18 = 2738
+        for _ in 0..2738 {
             let a = Bn254Base::rand();
             let b = Bn254Base::rand();
             let x = builder.constant_nonnative(a);
