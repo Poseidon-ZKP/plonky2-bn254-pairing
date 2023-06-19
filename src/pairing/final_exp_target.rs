@@ -179,6 +179,7 @@ pub fn final_exp<F: RichField + Extendable<D>, const D: usize>(
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
     use ark_bn254::{Fq12, G1Affine, G2Affine};
     use ark_std::UniformRand;
     use rand::Rng;
@@ -192,16 +193,68 @@ mod tests {
         },
     };
 
-    use crate::pairing::miller_loop_native::miller_loop as miller_loop_native;
     use crate::pairing::{
         final_exp_native::{final_exp as final_exp_native, frobenius_map as frobenius_map_native},
         final_exp_target::final_exp,
     };
+    use crate::{
+        curves::{g1curve_target::G1Target, g2curve_target::G2Target},
+        pairing::{
+            miller_loop_native::miller_loop as miller_loop_native, miller_loop_target::miller_loop,
+        },
+    };
     use crate::{fields::fq12_target::Fq12Target, pairing::final_exp_target::frobenius_map};
+    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
+    use log::Level;
+    use plonky2::plonk::prover::prove;
+    use plonky2::util::timing::TimingTree;
+
+    fn init_logger() {
+        let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
+    }
 
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;
+
+    #[test]
+    fn test_pairing_e2e() -> Result<()> {
+        init_logger();
+        let rng = &mut rand::thread_rng();
+        let Q = G2Affine::rand(rng);
+        let P = G1Affine::rand(rng);
+        let r_expected = miller_loop_native(&Q, &P);
+
+        let config = CircuitConfig::standard_ecc_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let Q_t = G2Target::constant(&mut builder, Q);
+        let P_t = G1Target::constant(&mut builder, P);
+
+        let r_t = miller_loop(&mut builder, &Q_t, &P_t);
+        let output = final_exp(&mut builder, r_t);
+        let output_expected = final_exp_native(r_expected);
+
+        let output_expected_t = Fq12Target::constant(&mut builder, output_expected.into());
+
+        Fq12Target::connect(&mut builder, &output, &output_expected_t);
+
+        let num_gates = builder.num_gates();
+        let pw = PartialWitness::new();
+        let mut timing = TimingTree::new("prove", Level::Debug);
+        let data = builder.build::<C>();
+        let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;
+        timing.print();
+        println!(
+            "Pairing: num_gates: {}, degree: {}, ",
+            num_gates,
+            data.common.degree()
+        );
+
+        data.verify(proof)?;
+
+        Ok(())
+    }
 
     #[test]
     fn test_final_exp_narrow() {
