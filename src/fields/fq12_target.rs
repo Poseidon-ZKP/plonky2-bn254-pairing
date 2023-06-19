@@ -332,6 +332,7 @@ impl<F: RichField + Extendable<D>, const D: usize>
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
     use ark_bn254::{Fq, Fq12, Fr};
     use ark_ff::Field;
     use ark_std::UniformRand;
@@ -350,6 +351,14 @@ mod tests {
     };
 
     use super::{from_biguint_to_fq, Fq12Target};
+    use plonky2::plonk::prover::prove;
+    use plonky2::util::timing::TimingTree;
+    use log::Level;
+    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
+
+    fn init_logger() {
+        let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
+    }
 
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
@@ -383,7 +392,8 @@ mod tests {
     }
 
     #[test]
-    fn test_fq12_mul_circuit() {
+    fn test_fq12_mul_circuit() -> Result<()> {
+        init_logger();
         let rng = &mut rand::thread_rng();
         let a = Fq12::rand(rng);
         let b = Fq12::rand(rng);
@@ -397,10 +407,20 @@ mod tests {
         let c_expected_t = Fq12Target::constant(&mut builder, c_expected);
 
         Fq12Target::connect(&mut builder, &c_expected_t, &c_t);
-
+        let num_gates = builder.num_gates();
         let pw = PartialWitness::new();
+        let mut timing = TimingTree::new("prove", Level::Debug);
         let data = builder.build::<C>();
-        let _proof = data.prove(pw);
+        let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;
+        timing.print();
+        println!(
+            "100 G1 adds muls: num_gates: {}, degree: {}, ",
+            num_gates, data.common.degree()
+        );
+
+        data.verify(proof)?;
+
+        Ok(())
     }
 
     #[test]
