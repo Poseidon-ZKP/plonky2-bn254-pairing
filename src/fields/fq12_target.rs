@@ -414,7 +414,7 @@ mod tests {
         let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;
         timing.print();
         println!(
-            "100 G1 adds muls: num_gates: {}, degree: {}, ",
+            "1 Gt mul: num_gates: {}, degree: {}, ",
             num_gates, data.common.degree()
         );
 
