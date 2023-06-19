@@ -168,6 +168,7 @@ impl<F: RichField + Extendable<D>, const D: usize>
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
     use ark_bn254::{Fr, G2Affine};
     use ark_std::UniformRand;
     use plonky2::{
@@ -179,6 +180,15 @@ mod tests {
         },
     };
 
+    use plonky2::plonk::prover::prove;
+    use plonky2::util::timing::TimingTree;
+    use log::Level;
+    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
+
+    fn init_logger() {
+        let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
+    }
+
     use crate::fields::fr_target::FrTarget;
 
     use super::G2Target;
@@ -188,7 +198,8 @@ mod tests {
     const D: usize = 2;
 
     #[test]
-    fn test_g2_add() {
+    fn test_g2_add() -> Result<()> {
+        init_logger();
         let rng = &mut rand::thread_rng();
         let a = G2Affine::rand(rng);
         let b = G2Affine::rand(rng);
@@ -203,9 +214,20 @@ mod tests {
 
         G2Target::connect(&mut builder, &c_expected_t, &c_t);
 
+        let num_gates = builder.num_gates();
         let pw = PartialWitness::new();
+        let mut timing = TimingTree::new("prove", Level::Debug);
         let data = builder.build::<C>();
-        let _proof = data.prove(pw);
+        let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;
+        timing.print();
+        println!(
+            "1 G2 adds muls: num_gates: {}, degree: {}, ",
+            num_gates, data.common.degree()
+        );
+
+        data.verify(proof)?;
+
+        Ok(())
     }
 
     #[test]
