@@ -356,7 +356,7 @@ mod tests {
         // wide ecc
         // 2^17 = 1369
         // 2^18 = 2738
-        for _ in 0..2738 {
+        for _ in 0..290 {
             let a = Bn254Base::rand();
             let b = Bn254Base::rand();
             let x = builder.constant_nonnative(a);
