@@ -355,6 +355,7 @@ pub fn multi_miller_loop<F: RichField + Extendable<D>, const D: usize>(
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
     use ark_bn254::{G1Affine, G2Affine};
     use ark_std::UniformRand;
     use plonky2::{
@@ -378,12 +379,22 @@ mod tests {
         fields::fq12_target::Fq12Target,
     };
 
+    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
+    use log::Level;
+    use plonky2::plonk::prover::prove;
+    use plonky2::util::timing::TimingTree;
+
+    fn init_logger() {
+        let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
+    }
+
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;
 
     #[test]
-    fn test_miller_loop_target() {
+    fn test_miller_loop_target() -> Result<()> {
+        init_logger();
         let rng = &mut rand::thread_rng();
         let Q = G2Affine::rand(rng);
         let P = G1Affine::rand(rng);
@@ -399,11 +410,21 @@ mod tests {
         let r_expected_t = Fq12Target::constant(&mut builder, r_expected.into());
 
         Fq12Target::connect(&mut builder, &r_t, &r_expected_t);
-
-        let pw = PartialWitness::<F>::new();
+        let num_gates = builder.num_gates();
+        let pw = PartialWitness::new();
+        let mut timing = TimingTree::new("prove", Level::Debug);
         let data = builder.build::<C>();
-        dbg!(data.common.degree_bits());
-        let _proof = data.prove(pw);
+        let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;
+        timing.print();
+        println!(
+            "miller loop: num_gates: {}, degree: {}, ",
+            num_gates,
+            data.common.degree()
+        );
+
+        data.verify(proof)?;
+
+        Ok(())
     }
 
     #[test]

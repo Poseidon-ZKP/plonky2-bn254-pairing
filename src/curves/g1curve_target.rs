@@ -282,8 +282,13 @@ impl<F: RichField + Extendable<D>, const D: usize>
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
     use ark_bn254::{Fr, G1Affine};
     use ark_std::UniformRand;
+    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
+    use log::Level;
+    use plonky2::plonk::prover::prove;
+    use plonky2::util::timing::TimingTree;
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
         iop::witness::{PartialWitness, WitnessWrite},
@@ -293,6 +298,10 @@ mod tests {
         },
     };
     use plonky2_ecdsa::gadgets::nonnative::CircuitBuilderNonNative;
+
+    fn init_logger() {
+        let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
+    }
     use rand::SeedableRng;
 
     use crate::fields::fr_target::FrTarget;
@@ -304,24 +313,36 @@ mod tests {
     const D: usize = 2;
 
     #[test]
-    fn test_g1_add() {
+    fn test_g1_add() -> Result<()> {
+        init_logger();
         let rng = &mut rand::thread_rng();
-        let a = G1Affine::rand(rng);
-        let b = G1Affine::rand(rng);
-        let c_expected: G1Affine = (a + b).into();
-
         let config = CircuitConfig::standard_ecc_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let a_t = G1Target::constant(&mut builder, a);
-        let b_t = G1Target::constant(&mut builder, b);
-        let c_t = a_t.add(&mut builder, &b_t);
-        let c_expected_t = G1Target::constant(&mut builder, c_expected);
-
-        G1Target::connect(&mut builder, &c_expected_t, &c_t);
-
+        for _ in 0..100 {
+            let a = G1Affine::rand(rng);
+            let b = G1Affine::rand(rng);
+            let c_expected: G1Affine = (a + b).into();
+            let a_t = G1Target::constant(&mut builder, a);
+            let b_t = G1Target::constant(&mut builder, b);
+            let c_t = a_t.add(&mut builder, &b_t);
+            let c_expected_t = G1Target::constant(&mut builder, c_expected);
+            G1Target::connect(&mut builder, &c_expected_t, &c_t);
+        }
+        let num_gates = builder.num_gates();
         let pw = PartialWitness::new();
+        let mut timing = TimingTree::new("prove", Level::Debug);
         let data = builder.build::<C>();
-        let _proof = data.prove(pw);
+        let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;
+        timing.print();
+        println!(
+            "100 G1 adds muls: num_gates: {}, degree: {}, ",
+            num_gates,
+            data.common.degree()
+        );
+
+        data.verify(proof)?;
+
+        Ok(())
     }
 
     #[test]

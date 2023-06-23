@@ -261,6 +261,10 @@ impl From<Fq> for Bn254Base {
 mod tests {
     use anyhow::Result;
     use ark_bn254::Fq;
+    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
+    use log::Level;
+    use plonky2::plonk::prover::prove;
+    use plonky2::util::timing::TimingTree;
     use plonky2::{
         field::types::Sample,
         iop::witness::PartialWitness,
@@ -271,6 +275,10 @@ mod tests {
         },
     };
     use plonky2_ecdsa::gadgets::nonnative::CircuitBuilderNonNative;
+
+    fn init_logger() {
+        let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
+    }
 
     use super::Bn254Base;
     #[test]
@@ -331,6 +339,7 @@ mod tests {
 
     #[test]
     fn test_mul_base_circuit() -> Result<()> {
+        init_logger();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -340,7 +349,14 @@ mod tests {
         let pw = PartialWitness::<F>::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        for _ in 0..100 {
+        // standard ecc
+        // 2^17 = 1184
+        // 2^18 = 2368
+        // 2^19 = 4737
+        // wide ecc
+        // 2^17 = 1369
+        // 2^18 = 2738
+        for _ in 0..290 {
             let a = Bn254Base::rand();
             let b = Bn254Base::rand();
             let x = builder.constant_nonnative(a);
@@ -352,8 +368,17 @@ mod tests {
             builder.connect_nonnative(&z, &expected_z);
         }
 
+        let num_gates = builder.num_gates();
+
+        let mut timing = TimingTree::new("prove", Level::Debug);
         let data = builder.build::<C>();
-        let proof = data.prove(pw).unwrap();
+        let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;
+        timing.print();
+        println!(
+            "100 base field muls: num_gates: {}, degree: {}, ",
+            num_gates,
+            data.common.degree()
+        );
 
         data.verify(proof)?;
 
